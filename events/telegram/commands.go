@@ -14,6 +14,9 @@ const (
 	RndCmd   = "/rnd"
 	HelpCmd  = "/help"
 	StartCmd = "/start"
+	/*SaveCmd = "/save"
+	GetAll = "/get"
+	DeleteCmd = /delete*/
 )
 
 func (p *Processor) doCmd(text string, chatID int, username string) error {
