@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"flag"
+	"log"
+
 	tgClient "flashcard/clients/telegram"
 	"flashcard/events/telegram"
 	"flashcard/storage/sqlite"
 
 	eventconsumer "flashcard/consumer/event-consumer"
-	"log"
 )
 
 const (
@@ -17,8 +18,9 @@ const (
 	batchSize         = 100
 )
 
+// REMOVED
 func main() {
-	//s := files.New(storagePath)
+	// s := files.New(storagePath)
 	s, err := sqlite.New(sqliteStoragePath)
 	if err != nil {
 		log.Fatal("can't connect to storage: ", err)

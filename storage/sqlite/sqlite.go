@@ -14,81 +14,87 @@ type Storage struct {
 	db *sql.DB
 }
 
-// New creates new SQLite storage.
 func New(path string) (*Storage, error) {
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, fmt.Errorf("can't open database: %w", err)
 	}
-
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("can't connect to database: %w", err)
 	}
-
 	return &Storage{db: db}, nil
 }
 
-// Save saves page to storage.
-func (s *Storage) Save(ctx context.Context, p *storage.Page) error {
-	q := `INSERT INTO pages (url, user_name) VALUES (?, ?)`
-
-	if _, err := s.db.ExecContext(ctx, q, p.URL, p.UserName); err != nil {
-		return fmt.Errorf("can't save page: %w", err)
+func (s *Storage) Init(ctx context.Context) error {
+	q := `CREATE TABLE IF NOT EXISTS items (
+        hash TEXT PRIMARY KEY,
+        user_name TEXT,
+        name TEXT,
+        content TEXT
+    )`
+	if _, err := s.db.ExecContext(ctx, q); err != nil {
+		return fmt.Errorf("can't create table: %w", err)
 	}
-
 	return nil
 }
 
-// PickRandom picks random page from storage.
-func (s *Storage) PickRandom(ctx context.Context, userName string) (*storage.Page, error) {
-	q := `SELECT url FROM pages WHERE user_name = ? ORDER BY RANDOM() LIMIT 1`
+func (s *Storage) Save(ctx context.Context, it *storage.Item) error {
+	h, err := it.Hash()
+	if err != nil {
+		return err
+	}
+	q := `INSERT INTO items (hash, user_name, name, content) VALUES (?, ?, ?, ?)`
+	if _, err := s.db.ExecContext(ctx, q, h, it.UserName, it.Name, it.Content); err != nil {
+		return fmt.Errorf("can't save item: %w", err)
+	}
+	return nil
+}
 
-	var url string
-
-	err := s.db.QueryRowContext(ctx, q, userName).Scan(&url)
+func (s *Storage) Get(ctx context.Context, userName, name string) (*storage.Item, error) {
+	q := `SELECT content FROM items WHERE user_name = ? AND name = ? LIMIT 1`
+	var content string
+	err := s.db.QueryRowContext(ctx, q, userName, name).Scan(&content)
 	if err == sql.ErrNoRows {
-		return nil, storage.ErrNoSavedPages
+		return nil, storage.ErrNoSavedItems
 	}
 	if err != nil {
-		return nil, fmt.Errorf("can't pick random page: %w", err)
+		return nil, fmt.Errorf("can't get item: %w", err)
 	}
-
-	return &storage.Page{
-		URL:      url,
-		UserName: userName,
-	}, nil
+	return &storage.Item{UserName: userName, Name: name, Content: content}, nil
 }
 
-// Remove removes page from storage.
-func (s *Storage) Remove(ctx context.Context, page *storage.Page) error {
-	q := `DELETE FROM pages WHERE url = ? AND user_name = ?`
-	if _, err := s.db.ExecContext(ctx, q, page.URL, page.UserName); err != nil {
-		return fmt.Errorf("can't remove page: %w", err)
-	}
-
-	return nil
-}
-
-// IsExists checks if page exists in storage.
-func (s *Storage) IsExists(ctx context.Context, page *storage.Page) (bool, error) {
-	q := `SELECT COUNT(*) FROM pages WHERE url = ? AND user_name = ?`
-
+func (s *Storage) IsExists(ctx context.Context, it *storage.Item) (bool, error) {
+	q := `SELECT COUNT(*) FROM items WHERE user_name = ? AND name = ?`
 	var count int
-
-	if err := s.db.QueryRowContext(ctx, q, page.URL, page.UserName).Scan(&count); err != nil {
-		return false, fmt.Errorf("can't check if page exists: %w", err)
+	if err := s.db.QueryRowContext(ctx, q, it.UserName, it.Name).Scan(&count); err != nil {
+		return false, fmt.Errorf("can't check if item exists: %w", err)
 	}
-
 	return count > 0, nil
 }
 
-func (s *Storage) Init(ctx context.Context) error {
-	q := `CREATE TABLE IF NOT EXISTS pages (url TEXT, user_name TEXT)`
-
-	_, err := s.db.ExecContext(ctx, q)
-	if err != nil {
-		return fmt.Errorf("can't create table: %w", err)
+func (s *Storage) Remove(ctx context.Context, it *storage.Item) error {
+	q := `DELETE FROM items WHERE user_name = ? AND name = ?`
+	if _, err := s.db.ExecContext(ctx, q, it.UserName, it.Name); err != nil {
+		return fmt.Errorf("can't remove item: %w", err)
 	}
-
 	return nil
+}
+
+func (s *Storage) List(ctx context.Context, userName string) ([]string, error) {
+	q := `SELECT name FROM items WHERE user_name = ?`
+	rows, err := s.db.QueryContext(ctx, q, userName)
+	if err != nil {
+		return nil, fmt.Errorf("can't list items: %w", err)
+	}
+	defer rows.Close()
+
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("can't scan name: %w", err)
+		}
+		names = append(names, name)
+	}
+	return names, nil
 }

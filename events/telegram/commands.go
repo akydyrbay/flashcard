@@ -3,34 +3,40 @@ package telegram
 import (
 	"context"
 	"errors"
+	"log"
+	"strings"
+
 	"flashcard/lib/e"
 	"flashcard/storage"
-	"log"
-	"net/url"
-	"strings"
 )
 
 const (
-	RndCmd   = "/rnd"
+	SaveCmd  = "/save" // /save <name> <text>
+	GetCmd   = "/get"  // /get <name>
 	HelpCmd  = "/help"
 	StartCmd = "/start"
-	/*SaveCmd = "/save"
-	GetAll = "/get"
-	DeleteCmd = /delete*/
+	ListCmd  = "/list"
 )
 
 func (p *Processor) doCmd(text string, chatID int, username string) error {
 	text = strings.TrimSpace(text)
+	log.Printf("got new command '%s' from '%s'", text, username)
 
-	log.Printf("got new command '%s' from '%s", text, username)
+	parts := strings.SplitN(text, " ", 3)
+	switch parts[0] {
+	case SaveCmd:
+		if len(parts) < 3 {
+			return p.tg.SendMessage(chatID, msgUsageSave)
+		}
+		return p.saveItem(chatID, username, parts[1], parts[2])
 
-	if isAddCmd(text) {
-		return p.savePage(chatID, text, username)
-	}
-
-	switch text {
-	case RndCmd:
-		return p.sendRandom(chatID, username)
+	case GetCmd:
+		if len(parts) < 2 {
+			return p.tg.SendMessage(chatID, msgUsageGet)
+		}
+		return p.getItem(chatID, username, parts[1])
+	case ListCmd:
+		return p.listItems(chatID, username)
 	case HelpCmd:
 		return p.sendHelp(chatID)
 	case StartCmd:
@@ -40,49 +46,44 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 	}
 }
 
-func (p *Processor) savePage(chatID int, pageURL string, username string) (err error) {
-	defer func() { err = e.WrapIfErr("can't do command: save page", err) }()
-
-	page := &storage.Page{
-		URL:      pageURL,
-		UserName: username,
-	}
-
-	isExists, err := p.storage.IsExists(context.Background(), page)
+func (p *Processor) saveItem(chatID int, user, name, content string) (err error) {
+	defer func() { err = e.WrapIfErr("save item", err) }()
+	item := &storage.Item{Name: name, Content: content, UserName: user}
+	exists, err := p.storage.IsExists(context.Background(), item)
 	if err != nil {
 		return err
 	}
-	if isExists {
+	if exists {
 		return p.tg.SendMessage(chatID, msgAlreadyExists)
 	}
-
-	if err := p.storage.Save(context.Background(), page); err != nil {
+	if err := p.storage.Save(context.Background(), item); err != nil {
 		return err
 	}
-
-	if err := p.tg.SendMessage(chatID, msgSaved); err != nil {
-		return err
-	}
-
-	return nil
+	return p.tg.SendMessage(chatID, msgSaved)
 }
 
-func (p *Processor) sendRandom(chatID int, username string) (err error) {
-	defer func() { err = e.WrapIfErr("can't do command: can't send random", err) }()
-
-	page, err := p.storage.PickRandom(context.Background(), username)
-	if err != nil && !errors.Is(err, storage.ErrNoSavedPages) {
+func (p *Processor) getItem(chatID int, user, name string) (err error) {
+	defer func() { err = e.WrapIfErr("get item", err) }()
+	item, err := p.storage.Get(context.Background(), user, name)
+	if err != nil {
+		if errors.Is(err, storage.ErrNoSavedItems) {
+			return p.tg.SendMessage(chatID, msgNoSavedItems)
+		}
 		return err
 	}
-	if errors.Is(err, storage.ErrNoSavedPages) {
-		return p.tg.SendMessage(chatID, msgNoSavedPages)
-	}
+	return p.tg.SendMessage(chatID, item.Content)
+}
 
-	if err := p.tg.SendMessage(chatID, page.URL); err != nil {
+func (p *Processor) listItems(chatID int, user string) (err error) {
+	defer func() { err = e.WrapIfErr("list items", err) }()
+	names, err := p.storage.List(context.Background(), user)
+	if err != nil {
 		return err
 	}
-
-	return p.storage.Remove(context.Background(), page)
+	if len(names) == 0 {
+		return p.tg.SendMessage(chatID, msgNoSavedItems)
+	}
+	return p.tg.SendMessage(chatID, "Your items:\n"+strings.Join(names, "\n"))
 }
 
 func (p *Processor) sendHelp(chatID int) error {
@@ -91,14 +92,4 @@ func (p *Processor) sendHelp(chatID int) error {
 
 func (p *Processor) sendHello(chatID int) error {
 	return p.tg.SendMessage(chatID, msgHello)
-}
-
-func isAddCmd(text string) bool {
-	return isURL(text)
-}
-
-func isURL(text string) bool {
-	u, err := url.Parse(text)
-
-	return err == nil && u.Host != ""
 }

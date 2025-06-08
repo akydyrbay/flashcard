@@ -1,17 +1,16 @@
 package telegram
 
-const msgHelp = `I can save and keep you pages. Also I can offer you them to read.
-
-In order to save the page, just send me al link to it.
-
-In order to get a random page from your list, send me command /rnd.
-Caution! After that, this page will be removed from your list!`
-
-const msgHello = "Hi there! 👾\n\n" + msgHelp
-
 const (
-	msgUnknownCommand = "Unknown command 🤔"
-	msgNoSavedPages   = "You have no saved pages 🙊"
-	msgSaved          = "Saved! 👌"
-	msgAlreadyExists  = "You have already have this page in your list 🤗"
+	msgUnknownCommand = "Sorry, I didn't understand that. Type /help for usage."
+	msgHelp           = `I can save and retrieve named texts:
+/save <name> <text> - save a text under a name
+/get <name>        - retrieve saved text
+/list - list all saved names
+`
+	msgHello         = "Welcome! Use /help to see commands."
+	msgAlreadyExists = "An entry with that name already exists."
+	msgSaved         = "Saved!"
+	msgNoSavedItems  = "No entries found by that name."
+	msgUsageSave     = "Usage: /save <name> <text>"
+	msgUsageGet      = "Usage: /get <name>"
 )
