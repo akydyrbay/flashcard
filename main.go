@@ -18,7 +18,6 @@ const (
 	batchSize         = 100
 )
 
-// REMOVED
 func main() {
 	// s := files.New(storagePath)
 	s, err := sqlite.New(sqliteStoragePath)
