@@ -11,6 +11,7 @@ const (
 	msgAlreadyExists = "An entry with that name already exists."
 	msgSaved         = "Saved!"
 	msgNoSavedItems  = "No entries found by that name."
-	msgUsageSave     = "Usage: /save <name> <text>"
+	msgUsageSave     = "Usage: /save <name> q:<question1> a:<answer1> q:<question2> a:<answer2> ..."
 	msgUsageGet      = "Usage: /get <name>"
+	msgInvalidFormat = "Invalid format! Use: /save <name> q:<question1> a:<answer1> [q:<question2> a:<answer2> ...]"
 )

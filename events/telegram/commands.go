@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"strings"
+	"time"
 
 	"flashcard/lib/e"
 	"flashcard/storage"
@@ -48,7 +49,21 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 
 func (p *Processor) saveItem(chatID int, user, name, content string) (err error) {
 	defer func() { err = e.WrapIfErr("save item", err) }()
-	item := &storage.Item{Name: name, Content: content, UserName: user}
+
+	// 1) Verify flashcard format
+	qaMap := extractQA(content)
+	if len(qaMap) == 0 {
+		return p.tg.SendMessage(chatID, msgInvalidFormat)
+	}
+
+	// 2) Prepare item
+	item := &storage.Item{
+		Name:     name,
+		Content:  content,
+		UserName: user,
+	}
+
+	// 3) Check for duplicates
 	exists, err := p.storage.IsExists(context.Background(), item)
 	if err != nil {
 		return err
@@ -56,9 +71,13 @@ func (p *Processor) saveItem(chatID int, user, name, content string) (err error)
 	if exists {
 		return p.tg.SendMessage(chatID, msgAlreadyExists)
 	}
+
+	// 4) Save to storage
 	if err := p.storage.Save(context.Background(), item); err != nil {
 		return err
 	}
+
+	// 5) Acknowledge
 	return p.tg.SendMessage(chatID, msgSaved)
 }
 
@@ -71,7 +90,47 @@ func (p *Processor) getItem(chatID int, user, name string) (err error) {
 		}
 		return err
 	}
-	return p.tg.SendMessage(chatID, item.Content)
+	contentMap := extractQA(item.Content)
+	for q, a := range contentMap {
+		// send question
+		if err = p.tg.SendMessage(chatID, q); err != nil {
+			return err
+		}
+
+		// pause for a second
+		time.Sleep(5 * time.Second)
+
+		// send answer
+		if err = p.tg.SendMessage(chatID, a); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func extractQA(text string) map[string]string {
+	result := make(map[string]string)
+
+	// 1) Drop the first line if it’s a "/save" command
+	lines := strings.Split(text, "\n")
+	if len(lines) > 0 && strings.HasPrefix(strings.TrimSpace(lines[0]), "/save") {
+		lines = lines[1:]
+	}
+
+	// 2) Walk the rest of the lines, pairing q: → a:
+	var currentQ string
+	for _, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if strings.HasPrefix(line, "q:") {
+			currentQ = strings.TrimSpace(strings.TrimPrefix(line, "q:"))
+		} else if strings.HasPrefix(line, "a:") && currentQ != "" {
+			answer := strings.TrimSpace(strings.TrimPrefix(line, "a:"))
+			result[currentQ] = answer
+			currentQ = "" // reset until next question
+		}
+	}
+
+	return result
 }
 
 func (p *Processor) listItems(chatID int, user string) (err error) {
