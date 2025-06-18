@@ -1,8 +1,3 @@
-# flashcard
-
-telegram bot for creating and saving the flascards from lectures. 
-
-
 # 📚 Telegram Flashcard Bot
 
 A Telegram bot built in Go that allows users to **create, quiz, list, and delete named flashcard sets directly in chat**. Users can save a series of question-answer pairs under a custom name, retrieve and quiz themselves on demand, and manage their sets easily. Includes optional integration with AI (ChatGPT) to automatically generate flashcards from a user prompt.
