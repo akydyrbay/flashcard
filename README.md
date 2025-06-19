@@ -22,7 +22,7 @@ A Telegram bot built in Go that allows users to **create, quiz, list, and delete
 - **Golang** – core application logic and Telegram bot  
 - **SQLite** – lightweight embedded database  
 - **Telegram Bot API** – handles user interaction  
-- **OpenAI API (optional)** – generates flashcards from prompts  
+- **OpenAI API** – generates flashcards from prompts  
 - **Custom Event Consumer** – decouples event fetching and processing  
 
 ---
@@ -37,6 +37,7 @@ A Telegram bot built in Go that allows users to **create, quiz, list, and delete
 ├── storage/sqlite/ # SQLite storage implementation
 ├── lib/e/ # Error wrapping helpers
 ├── go.mod / go.sum # Go modules
+├── data/sqlite/ # Data storage
 ```
 
 ---
@@ -49,8 +50,8 @@ A Telegram bot built in Go that allows users to **create, quiz, list, and delete
 git clone https://github.com/yourusername/telegram-flashcard-bot.git
 cd telegram-flashcard-bot
 ```
+2. **Start the program:**
 ```bash 
 go build .
-
 ./flashcard -tg-bot-token 'token'
 ```
