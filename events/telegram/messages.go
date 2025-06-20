@@ -22,4 +22,6 @@ const (
 	msgDeleteResponse = "Sure! Please send me the name of the flashcard you want to delete."
 	msgGetCmdResponse = "Please send a name of the flashcards to get."
 	msgQuizComplete   = "Quiz is finished"
+	msgSaveName       = "Got your Q&A. Now please send the **name** you want to save this under."
+	msgNoActive       = "No active quiz—send /get first."
 )

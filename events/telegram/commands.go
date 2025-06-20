@@ -36,8 +36,7 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 		// store the QA, move to next step
 		p.pendingSaveName[chatID] = &saveState{rawQA: text}
 		delete(p.pendingSaveQA, chatID)
-		return p.tg.SendMessage(chatID,
-			"Got your Q&A. Now please send the **name** you want to save this under.")
+		return p.tg.SendMessage(chatID, msgSaveName)
 	}
 	if p.pendingDelete[chatID] {
 		delete(p.pendingDelete, chatID)
@@ -74,6 +73,7 @@ func (p *Processor) doCmd(text string, chatID int, username string) error {
 		return p.tg.SendMessage(chatID, msgUnknownCommand)
 	}
 }
+
 func (p *Processor) finishSave(chatID int, user, rawQA, name string) error {
 	// rawQA is the Q&A string, name is the final name
 	// 1) validate and parse rawQA
@@ -85,6 +85,7 @@ func (p *Processor) finishSave(chatID int, user, rawQA, name string) error {
 	// 2) now call your existing saveItem logic:
 	return p.saveItem(chatID, user, name, rawQA)
 }
+
 func (p *Processor) handleGet(chatID int, user, name string) error {
 	item := &storage.Item{UserName: user, Name: name}
 	exists, err := p.storage.IsExists(context.Background(), item)
@@ -96,6 +97,7 @@ func (p *Processor) handleGet(chatID int, user, name string) error {
 	}
 	return p.startSession(chatID, user, name)
 }
+
 func (p *Processor) handleDeleteContent(chatID int, user, name string) error {
 	// 1) Check existence
 	item := &storage.Item{UserName: user, Name: name}
@@ -115,6 +117,7 @@ func (p *Processor) handleDeleteContent(chatID int, user, name string) error {
 	// 3) Confirm
 	return p.tg.SendMessage(chatID, fmt.Sprintf("Deleted deck “%s”.", name))
 }
+
 func (p *Processor) saveItem(chatID int, user, name, content string) (err error) {
 	defer func() { err = e.WrapIfErr("save item", err) }()
 
@@ -148,6 +151,7 @@ func (p *Processor) saveItem(chatID int, user, name, content string) (err error)
 	// 5) Acknowledge
 	return p.tg.SendMessage(chatID, msgSaved)
 }
+
 func (p *Processor) startSession(chatID int, user, name string) (err error) {
 	defer func() { err = e.WrapIfErr("start session", err) }()
 
@@ -177,10 +181,11 @@ func (p *Processor) startSession(chatID int, user, name string) (err error) {
 	// send first question
 	return p.tg.SendMessage(chatID, pairs[0].Q)
 }
+
 func (p *Processor) advanceSession(chatID int) error {
 	sess, ok := p.sessions[chatID]
 	if !ok {
-		return p.tg.SendMessage(chatID, "No active quiz—send /get <name> first.")
+		return p.tg.SendMessage(chatID, msgNoActive)
 	}
 
 	// send the answer to the previous question
